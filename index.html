@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Canvas – منصة إدارة المشاريع الاستراتيجية</title>
+
+  <!-- Tajawal Arabic Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── Firebase configuration ────────────────────────────────────────────────
+    // Replace the values below with your own Firebase project credentials.
+    // See: https://firebase.google.com/docs/web/setup#available-libraries
+    // The values here are non-functional placeholders and contain no real keys.
+    const firebaseConfig = {
+      apiKey:            window.__FIREBASE_API_KEY__            || "REPLACE_WITH_YOUR_API_KEY",
+      authDomain:        window.__FIREBASE_AUTH_DOMAIN__        || "your-project.firebaseapp.com",
+      projectId:         window.__FIREBASE_PROJECT_ID__         || "your-project-id",
+      storageBucket:     window.__FIREBASE_STORAGE_BUCKET__     || "your-project.appspot.com",
+      messagingSenderId: window.__FIREBASE_MESSAGING_SENDER_ID__|| "000000000000",
+      appId:             window.__FIREBASE_APP_ID__             || "1:000000000000:web:PLACEHOLDER",
+    };
+
+    let db = null;
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      window.__db = db;
+      window.__fb = { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot };
+      console.log("Firebase connected.");
+    } catch (e) {
+      console.warn("Firebase not configured – running in local-only mode.", e.message);
+    }
+  </script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { tajawal: ["Tajawal", "sans-serif"] },
+          colors: {
+            brand: {
+              50:  "#eef2ff",
+              100: "#e0e7ff",
+              200: "#c7d2fe",
+              300: "#a5b4fc",
+              400: "#818cf8",
+              500: "#6366f1",
+              600: "#4f46e5",
+              700: "#4338ca",
+              800: "#3730a3",
+              900: "#312e81",
+            },
+            surface: "#0f172a",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { font-family: "Tajawal", sans-serif; box-sizing: border-box; }
+    body { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); min-height: 100vh; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+
+    /* Glassmorphism card */
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+    }
+    .glass-dark {
+      background: rgba(15,23,42,0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 16px;
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #818cf8, #c084fc, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Nav active */
+    .nav-item.active {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+    }
+    .nav-item { transition: all .25s ease; }
+
+    /* Progress bar animation */
+    .progress-fill { transition: width 1s ease; }
+
+    /* Tab content */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .modal-box {
+      background: #1e293b;
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 20px;
+      width: 100%; max-width: 560px;
+      max-height: 90vh; overflow-y: auto;
+      padding: 2rem;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: .2rem .7rem;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 700;
+    }
+
+    /* Hover lift */
+    .hover-lift { transition: transform .2s, box-shadow .2s; }
+    .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(99,102,241,.25); }
+
+    /* Pulse dot */
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .pulse-dot { animation: pulse-dot 2s infinite; }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.05) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+      border-radius: 8px;
+    }
+
+    /* Pricing card highlight */
+    .pricing-popular {
+      border: 2px solid #6366f1;
+      position: relative;
+    }
+    .pricing-popular::before {
+      content: "الأكثر شيوعاً";
+      position: absolute;
+      top: -14px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg,#6366f1,#8b5cf6);
+      color: #fff; font-size: .75rem; font-weight: 700;
+      padding: .25rem 1rem; border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    /* Chart canvas constraint */
+    canvas { max-height: 280px; }
+
+    /* Template card category colors */
+    .cat-digital   { border-top: 3px solid #6366f1; }
+    .cat-feasib    { border-top: 3px solid #10b981; }
+    .cat-growth    { border-top: 3px solid #f59e0b; }
+    .cat-ops       { border-top: 3px solid #ef4444; }
+
+    /* Responsive sidebar */
+    @media (max-width: 768px) {
+      #sidebar { position: fixed; right: -260px; top: 0; height: 100vh; z-index: 999; transition: right .3s; width: 260px; }
+      #sidebar.open { right: 0; }
+      #main-content { margin-right: 0 !important; }
+    }
+  </style>
+</head>
+
+<body class="text-slate-100">
+
+<!-- ─────────────────────────── MOBILE HEADER ─────────────────────────────── -->
+<header class="md:hidden flex items-center justify-between px-4 py-3 glass-dark sticky top-0 z-50">
+  <button id="hamburger" class="p-2 rounded-lg hover:bg-white/10">
+    <i data-lucide="menu" class="w-5 h-5"></i>
+  </button>
+  <span class="text-lg font-bold gradient-text">Project Canvas</span>
+  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-sm font-bold">م</div>
+</header>
+
+<!-- ─────────────────────────── LAYOUT WRAPPER ────────────────────────────── -->
+<div class="flex min-h-screen">
+
+  <!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+  <aside id="sidebar" class="w-64 glass-dark flex flex-col py-6 px-4 sticky top-0 h-screen overflow-y-auto">
+
+    <!-- Logo -->
+    <div class="mb-8 flex items-center gap-3 px-2">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <div class="font-bold text-white text-lg leading-tight">Project Canvas</div>
+        <div class="text-xs text-slate-400">إدارة المشاريع</div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 space-y-1">
+      <button class="nav-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium" data-tab="dashboard">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <span>لوحة التحكم</span>
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10" data-tab="projects">
+        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+        <span>المشاريع</span>
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10" data-tab="templates">
+        <i data-lucide="book-open" class="w-4 h-4"></i>
+        <span>مكتبة القوالب</span>
+        <span class="badge bg-brand-500/20 text-brand-300 mr-auto">105+</span>
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10" data-tab="pricing">
+        <i data-lucide="credit-card" class="w-4 h-4"></i>
+        <span>الاشتراكات</span>
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10" data-tab="profile">
+        <i data-lucide="user-circle" class="w-4 h-4"></i>
+        <span>الملف الشخصي</span>
+      </button>
+    </nav>
+
+    <!-- User card -->
+    <div class="mt-6 glass p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center font-bold text-sm">م</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold truncate">مستخدم تجريبي</div>
+          <div class="text-xs text-slate-400 flex items-center gap-1">
+            <span class="pulse-dot w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+            <span>Growth Pro</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════ MAIN CONTENT ══════════════════════ -->
+  <main id="main-content" class="flex-1 p-4 md:p-8 overflow-y-auto">
+
+    <!-- ────────────────── DASHBOARD TAB ────────────────── -->
+    <section id="tab-dashboard" class="tab-content active">
+
+      <!-- Header -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-black gradient-text mb-1">لوحة التحكم</h1>
+        <p class="text-slate-400 text-sm">مرحباً بك في منصة Project Canvas – نظرة شاملة على مشاريعك</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="glass hover-lift p-5 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="w-10 h-10 rounded-lg bg-brand-500/20 flex items-center justify-center">
+              <i data-lucide="folder" class="w-5 h-5 text-brand-400"></i>
+            </div>
+            <span class="badge bg-green-500/20 text-green-400">+12%</span>
+          </div>
+          <div class="text-2xl font-black" id="kpi-projects">24</div>
+          <div class="text-xs text-slate-400 mt-1">إجمالي المشاريع</div>
+        </div>
+
+        <div class="glass hover-lift p-5 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+            </div>
+            <span class="badge bg-green-500/20 text-green-400">+8%</span>
+          </div>
+          <div class="text-2xl font-black" id="kpi-completed">9</div>
+          <div class="text-xs text-slate-400 mt-1">مشاريع مكتملة</div>
+        </div>
+
+        <div class="glass hover-lift p-5 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+              <i data-lucide="clock" class="w-5 h-5 text-yellow-400"></i>
+            </div>
+            <span class="badge bg-yellow-500/20 text-yellow-400">جارية</span>
+          </div>
+          <div class="text-2xl font-black" id="kpi-active">11</div>
+          <div class="text-xs text-slate-400 mt-1">مشاريع نشطة</div>
+        </div>
+
+        <div class="glass hover-lift p-5 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <i data-lucide="users" class="w-5 h-5 text-purple-400"></i>
+            </div>
+            <span class="badge bg-purple-500/20 text-purple-400">+5</span>
+          </div>
+          <div class="text-2xl font-black">47</div>
+          <div class="text-xs text-slate-400 mt-1">أعضاء الفريق</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+        <!-- Performance Chart -->
+        <div class="glass p-5 rounded-xl lg:col-span-2">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-white">أداء المشاريع الشهري</h3>
+              <p class="text-xs text-slate-400">آخر 6 أشهر</p>
+            </div>
+            <div class="flex gap-2">
+              <span class="flex items-center gap-1 text-xs text-brand-400"><span class="w-2 h-2 rounded-full bg-brand-400 inline-block"></span>مكتمل</span>
+              <span class="flex items-center gap-1 text-xs text-purple-400"><span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>جارٍ</span>
+            </div>
+          </div>
+          <canvas id="chart-performance"></canvas>
+        </div>
+
+        <!-- Donut Chart -->
+        <div class="glass p-5 rounded-xl">
+          <h3 class="font-bold text-white mb-1">توزيع التصنيفات</h3>
+          <p class="text-xs text-slate-400 mb-4">حسب النوع</p>
+          <canvas id="chart-categories"></canvas>
+          <div class="mt-4 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-500 inline-block"></span>تحول رقمي</span>
+              <span class="text-slate-300">38%</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>دراسات جدوى</span>
+              <span class="text-slate-300">27%</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>نمو وتوسع</span>
+              <span class="text-slate-300">20%</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>عمليات</span>
+              <span class="text-slate-300">15%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Overview -->
+      <div class="glass p-5 rounded-xl mb-8">
+        <h3 class="font-bold text-white mb-4">تقدم المشاريع الأبرز</h3>
+        <div class="space-y-4" id="dashboard-progress-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- Activity & Budget -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass p-5 rounded-xl">
+          <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-brand-400"></i>
+            آخر الأنشطة
+          </h3>
+          <div class="space-y-3" id="activity-feed">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="glass p-5 rounded-xl">
+          <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-purple-400"></i>
+            ملخص الميزانية
+          </h3>
+          <canvas id="chart-budget"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────────────── PROJECTS TAB ────────────────── -->
+    <section id="tab-projects" class="tab-content">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-3xl font-black gradient-text mb-1">المشاريع</h1>
+          <p class="text-slate-400 text-sm">أنشئ ومتابع جميع مشاريعك الاستراتيجية</p>
+        </div>
+        <button onclick="openProjectModal()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-semibold text-sm transition-all">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          مشروع جديد
+        </button>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="flex gap-2 mb-6 flex-wrap">
+        <button class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium" data-filter="all">الكل</button>
+        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/10" data-filter="active">نشط</button>
+        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/10" data-filter="completed">مكتمل</button>
+        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/10" data-filter="paused">متوقف</button>
+      </div>
+
+      <!-- Projects Grid -->
+      <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <!-- populated by JS -->
+      </div>
+
+      <div id="projects-empty" class="hidden text-center py-20">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-2xl glass flex items-center justify-center">
+          <i data-lucide="folder-plus" class="w-10 h-10 text-slate-500"></i>
+        </div>
+        <p class="text-slate-400">لا توجد مشاريع بعد – أنشئ مشروعك الأول!</p>
+      </div>
+    </section>
+
+    <!-- ────────────────── TEMPLATES TAB ────────────────── -->
+    <section id="tab-templates" class="tab-content">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black gradient-text mb-1">مكتبة القوالب الاستراتيجية</h1>
+        <p class="text-slate-400 text-sm">105+ قالب جاهز للاستخدام – اختر ما يناسب مشروعك</p>
+      </div>
+
+      <!-- Search + Filter -->
+      <div class="flex flex-wrap gap-3 mb-6">
+        <div class="relative flex-1 min-w-[200px]">
+          <i data-lucide="search" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+          <input id="template-search" type="text" placeholder="ابحث في القوالب..." class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pr-10 pl-4 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+        </div>
+        <select id="template-cat" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500">
+          <option value="all">جميع التصنيفات</option>
+          <option value="digital">التحول الرقمي</option>
+          <option value="feasib">دراسات الجدوى</option>
+          <option value="growth">النمو والتوسع</option>
+          <option value="ops">العمليات</option>
+        </select>
+      </div>
+
+      <!-- Category sections -->
+      <div id="templates-container" class="space-y-10">
+        <!-- populated by JS -->
+      </div>
+    </section>
+
+    <!-- ────────────────── PRICING TAB ────────────────── -->
+    <section id="tab-pricing" class="tab-content">
+      <div class="text-center mb-10">
+        <h1 class="text-3xl font-black gradient-text mb-2">خطط الاشتراك</h1>
+        <p class="text-slate-400 text-sm max-w-lg mx-auto">اختر الخطة المناسبة لفريقك وابدأ في بناء مشاريع استثنائية اليوم</p>
+      </div>
+
+      <!-- Toggle -->
+      <div class="flex items-center justify-center gap-3 mb-10">
+        <span class="text-sm text-slate-400">شهري</span>
+        <button id="billing-toggle" class="w-12 h-6 bg-brand-600 rounded-full relative transition-all" onclick="toggleBilling()">
+          <span id="billing-dot" class="w-5 h-5 bg-white rounded-full absolute top-0.5 right-0.5 transition-all"></span>
+        </button>
+        <span class="text-sm text-slate-300">سنوي <span class="badge bg-green-500/20 text-green-400">وفر 20%</span></span>
+      </div>
+
+      <!-- Pricing cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+
+        <!-- Starter -->
+        <div class="glass hover-lift p-7 rounded-2xl">
+          <div class="mb-6">
+            <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+              <i data-lucide="rocket" class="w-6 h-6 text-blue-400"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1">Starter</h3>
+            <p class="text-slate-400 text-sm">للأفراد والمشاريع الصغيرة</p>
+          </div>
+          <div class="mb-6">
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white" data-monthly="15" data-yearly="12">$15</span>
+              <span class="text-slate-400 text-sm mb-1">/شهر</span>
+            </div>
+          </div>
+          <ul class="space-y-3 mb-8 text-sm">
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>5 مشاريع نشطة</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>20 قالب استراتيجي</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>تقارير أساسية</li>
+            <li class="flex items-center gap-2 text-slate-400"><i data-lucide="x" class="w-4 h-4 text-slate-600 shrink-0"></i>تحليلات متقدمة</li>
+            <li class="flex items-center gap-2 text-slate-400"><i data-lucide="x" class="w-4 h-4 text-slate-600 shrink-0"></i>دعم أولوية</li>
+          </ul>
+          <button onclick="openCheckout('starter','15')" class="w-full py-3 rounded-xl border border-brand-500 text-brand-400 hover:bg-brand-500/10 font-semibold text-sm transition-all">
+            ابدأ مجاناً 14 يوم
+          </button>
+        </div>
+
+        <!-- Growth Pro (popular) -->
+        <div class="glass hover-lift p-7 rounded-2xl pricing-popular">
+          <div class="mb-6">
+            <div class="w-12 h-12 rounded-xl bg-brand-500/20 flex items-center justify-center mb-4">
+              <i data-lucide="trending-up" class="w-6 h-6 text-brand-400"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1">Growth Pro</h3>
+            <p class="text-slate-400 text-sm">للفرق والشركات الناشئة</p>
+          </div>
+          <div class="mb-6">
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white" data-monthly="60" data-yearly="48">$60</span>
+              <span class="text-slate-400 text-sm mb-1">/شهر</span>
+            </div>
+          </div>
+          <ul class="space-y-3 mb-8 text-sm">
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>مشاريع غير محدودة</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>جميع القوالب (105+)</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>تقارير وتحليلات متقدمة</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>حتى 20 عضو في الفريق</li>
+            <li class="flex items-center gap-2 text-slate-400"><i data-lucide="x" class="w-4 h-4 text-slate-600 shrink-0"></i>مدير حساب مخصص</li>
+          </ul>
+          <button onclick="openCheckout('growth','60')" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-semibold text-sm transition-all">
+            ابدأ تجربتك الآن
+          </button>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="glass hover-lift p-7 rounded-2xl">
+          <div class="mb-6">
+            <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center mb-4">
+              <i data-lucide="building-2" class="w-6 h-6 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1">Enterprise</h3>
+            <p class="text-slate-400 text-sm">للمؤسسات الكبرى</p>
+          </div>
+          <div class="mb-6">
+            <div class="flex items-end gap-1">
+              <span class="text-4xl font-black text-white" data-monthly="400" data-yearly="320">$400</span>
+              <span class="text-slate-400 text-sm mb-1">/شهر</span>
+            </div>
+          </div>
+          <ul class="space-y-3 mb-8 text-sm">
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>كل ما في Growth Pro</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>أعضاء غير محدودين</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>API مخصص + تكامل ERP</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>مدير حساب مخصص</li>
+            <li class="flex items-center gap-2 text-slate-300"><i data-lucide="check" class="w-4 h-4 text-green-400 shrink-0"></i>SLA 99.9% + دعم 24/7</li>
+          </ul>
+          <button onclick="openCheckout('enterprise','400')" class="w-full py-3 rounded-xl border border-yellow-500 text-yellow-400 hover:bg-yellow-500/10 font-semibold text-sm transition-all">
+            تواصل مع المبيعات
+          </button>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div class="max-w-3xl mx-auto mt-14">
+        <h2 class="text-xl font-bold text-white text-center mb-6">أسئلة شائعة</h2>
+        <div class="space-y-3" id="faq-container">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────────────── PROFILE TAB ────────────────── -->
+    <section id="tab-profile" class="tab-content">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black gradient-text mb-1">الملف الشخصي</h1>
+        <p class="text-slate-400 text-sm">إدارة بياناتك وإعدادات حسابك</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Avatar & info -->
+        <div class="glass p-6 rounded-xl text-center lg:col-span-1">
+          <div class="w-24 h-24 mx-auto rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-3xl font-black mb-4">م</div>
+          <h3 class="font-bold text-white text-lg mb-0.5" id="profile-name-display">مستخدم تجريبي</h3>
+          <p class="text-slate-400 text-sm mb-4" id="profile-email-display">user@example.com</p>
+          <span class="badge bg-brand-500/20 text-brand-300 text-sm px-4 py-1">Growth Pro</span>
+          <div class="mt-6 grid grid-cols-2 gap-3 text-sm">
+            <div class="glass p-3 rounded-lg">
+              <div class="text-lg font-bold" id="profile-projects-count">0</div>
+              <div class="text-xs text-slate-400">مشروع</div>
+            </div>
+            <div class="glass p-3 rounded-lg">
+              <div class="text-lg font-bold">105+</div>
+              <div class="text-xs text-slate-400">قالب متاح</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit form -->
+        <div class="glass p-6 rounded-xl lg:col-span-2">
+          <h3 class="font-bold text-white mb-5 flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-4 h-4 text-brand-400"></i>
+            تعديل البيانات
+          </h3>
+          <form id="profile-form" onsubmit="saveProfile(event)" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1.5">الاسم الكامل</label>
+                <input id="profile-name" type="text" value="مستخدم تجريبي" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1.5">البريد الإلكتروني</label>
+                <input id="profile-email" type="email" value="user@example.com" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1.5">المسمى الوظيفي</label>
+                <input id="profile-title" type="text" value="مدير مشاريع" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1.5">الشركة / المؤسسة</label>
+                <input id="profile-company" type="text" value="" placeholder="اسم شركتك" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5">نبذة شخصية</label>
+              <textarea id="profile-bio" rows="3" placeholder="اكتب نبذة قصيرة عن نفسك..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 resize-none"></textarea>
+            </div>
+            <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-semibold text-sm transition-all">
+              حفظ التغييرات
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ─────────────────── MODALS ──────────────────── -->
+
+<!-- New Project Modal -->
+<div id="modal-project" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-project')">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-xl font-bold text-white">إنشاء مشروع جديد</h3>
+      <button onclick="closeModal('modal-project')" class="p-2 hover:bg-white/10 rounded-lg">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form id="project-form" onsubmit="saveProject(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">اسم المشروع *</label>
+        <input id="proj-name" required type="text" placeholder="أدخل اسم المشروع" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">الوصف</label>
+        <textarea id="proj-desc" rows="3" placeholder="وصف مختصر للمشروع..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">التصنيف</label>
+          <select id="proj-cat" class="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500">
+            <option value="digital">التحول الرقمي</option>
+            <option value="feasib">دراسة جدوى</option>
+            <option value="growth">نمو وتوسع</option>
+            <option value="ops">عمليات</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">الأولوية</label>
+          <select id="proj-priority" class="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500">
+            <option value="high">عالية</option>
+            <option value="medium">متوسطة</option>
+            <option value="low">منخفضة</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">تاريخ البداية</label>
+          <input id="proj-start" type="date" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">تاريخ الانتهاء</label>
+          <input id="proj-end" type="date" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">الميزانية (ريال/دولار)</label>
+        <input id="proj-budget" type="number" placeholder="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">نسبة الإنجاز الأولية: <span id="prog-label">0%</span></label>
+        <input id="proj-progress" type="range" min="0" max="100" value="0" oninput="document.getElementById('prog-label').textContent=this.value+'%'" class="w-full accent-indigo-500" />
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('modal-project')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm font-medium">إلغاء</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-semibold text-sm">إنشاء المشروع</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Checkout Modal -->
+<div id="modal-checkout" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-checkout')">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-xl font-bold text-white">إتمام الاشتراك</h3>
+      <button onclick="closeModal('modal-checkout')" class="p-2 hover:bg-white/10 rounded-lg">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div id="checkout-summary" class="glass p-4 rounded-xl mb-5 text-sm"></div>
+    <form id="checkout-form" onsubmit="processCheckout(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">الاسم على البطاقة</label>
+        <input required type="text" placeholder="الاسم الكامل" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">رقم البطاقة</label>
+        <input required type="tel" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" dir="ltr" autocomplete="cc-number" />
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">تاريخ الانتهاء</label>
+          <input required type="tel" placeholder="MM/YY" maxlength="5" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" dir="ltr" autocomplete="cc-exp" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">CVV</label>
+          <input required type="tel" placeholder="123" maxlength="4" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-brand-500" dir="ltr" autocomplete="cc-csc" />
+        </div>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('modal-checkout')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 text-sm font-medium">إلغاء</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold text-sm flex items-center justify-center gap-2">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+          ادفع الآن
+        </button>
+      </div>
+      <p class="text-center text-xs text-slate-500 flex items-center justify-center gap-1">
+        <i data-lucide="shield-check" class="w-3 h-3 text-green-500"></i>
+        هذا نموذج محاكاة للعرض – لا يتم إرسال أي بيانات مالية حقيقية
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- Success Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 glass px-6 py-3 rounded-xl flex items-center gap-3 text-sm font-medium z-[2000] transition-all duration-300 opacity-0 scale-95 pointer-events-none">
+  <i data-lucide="check-circle" class="w-5 h-5 text-green-400 shrink-0"></i>
+  <span id="toast-msg">تم بنجاح!</span>
+</div>
+
+<!-- Overlay for mobile sidebar -->
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-[998] hidden md:hidden" onclick="closeSidebar()"></div>
+
+
+<!-- ─────────────────────── SCRIPTS ──────────────────────── -->
+<script>
+// ════════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════════
+let projects = JSON.parse(localStorage.getItem('pc_projects') || '[]');
+let profile  = JSON.parse(localStorage.getItem('pc_profile')  || '{}');
+let billingYearly = false;
+
+// Default sample projects if none saved
+if (projects.length === 0) {
+  projects = [
+    { id: 1, name: "تطوير تطبيق الموبايل", desc: "تطبيق iOS/Android لخدمة العملاء", cat: "digital", priority: "high", progress: 72, status: "active", start: "2025-01-01", end: "2025-06-30", budget: 120000, createdAt: Date.now() },
+    { id: 2, name: "دراسة جدوى توسع السوق", desc: "دراسة توسع إلى أسواق الخليج العربي", cat: "feasib", priority: "medium", progress: 45, status: "active", start: "2025-02-01", end: "2025-05-15", budget: 35000, createdAt: Date.now() },
+    { id: 3, name: "نظام ERP المؤسسي", desc: "تطبيق نظام موارد مؤسسية متكامل", cat: "ops", priority: "high", progress: 100, status: "completed", start: "2024-07-01", end: "2024-12-31", budget: 500000, createdAt: Date.now() },
+    { id: 4, name: "استراتيجية التوسع الإقليمي", desc: "خطة توسع لأسواق السعودية والإمارات", cat: "growth", priority: "high", progress: 30, status: "active", start: "2025-03-01", end: "2025-09-30", budget: 200000, createdAt: Date.now() },
+    { id: 5, name: "منصة التعليم الإلكتروني", desc: "منصة e-learning مع محتوى عربي", cat: "digital", priority: "medium", progress: 15, status: "active", start: "2025-04-01", end: "2025-12-31", budget: 80000, createdAt: Date.now() },
+    { id: 6, name: "إعادة هيكلة العمليات", desc: "مراجعة وتحسين العمليات الداخلية", cat: "ops", priority: "low", progress: 60, status: "paused", start: "2024-11-01", end: "2025-07-31", budget: 25000, createdAt: Date.now() },
+  ];
+  localStorage.setItem('pc_projects', JSON.stringify(projects));
+}
+
+// ════════════════════════════════════════════════
+//  TEMPLATES DATA  (105+ blueprints)
+// ════════════════════════════════════════════════
+const TEMPLATES = {
+  digital: {
+    label: "التحول الرقمي",
+    icon: "cpu",
+    color: "brand",
+    cls: "cat-digital",
+    items: [
+      "استراتيجية التحول الرقمي الشامل","نموذج نضج الذكاء الاصطناعي","خارطة طريق تحويل العمليات","مخطط نقل البنية التحتية إلى السحابة",
+      "إطار حوكمة البيانات المؤسسي","خطة أمن المعلومات والأمن السيبراني","نموذج اعتماد تقنيات بلوك تشين","إطار تطوير تجربة العميل الرقمية",
+      "منهجية Agile للتحول المؤسسي","خطة إدارة التغيير التكنولوجي","نموذج قياس العائد على الاستثمار الرقمي","مخطط تكامل الأنظمة المؤسسية",
+      "استراتيجية إنترنت الأشياء IoT","خطة تطوير تطبيق الهاتف الذكي","نموذج حوكمة الذكاء الاصطناعي المسؤول","إطار تحليلات البيانات الضخمة",
+      "مخطط تطوير منصة التجارة الإلكترونية","خطة RPA لأتمتة العمليات","نموذج تطوير API الاستراتيجي","خطة تحديث الموارد البشرية رقمياً",
+      "إطار DevSecOps المؤسسي","مخطط إدارة الهوية الرقمية","استراتيجية التسويق الرقمي الشامل","نموذج تقييم المخاطر التكنولوجية",
+      "خطة تطوير منصة البيانات","نموذج قياس الأداء الرقمي KPI","إطار استمرارية الأعمال الرقمية","مخطط تنفيذ ERP السحابي",
+    ],
+  },
+  feasib: {
+    label: "دراسات الجدوى",
+    icon: "file-text",
+    color: "green",
+    cls: "cat-feasib",
+    items: [
+      "قالب دراسة الجدوى الاقتصادية الشاملة","نموذج تحليل السوق والمنافسين","مخطط دراسة الجدوى التقنية","نموذج دراسة الجدوى المالية",
+      "تقرير تحليل SWOT الاستراتيجي","نموذج تحليل قوى بورتر الخمس","مخطط تحليل المخاطر والفرص","قالب خطة العمل التنفيذية",
+      "نموذج توقعات التدفق النقدي 5 سنوات","مخطط تحليل نقطة التعادل BEP","نموذج تقييم الأثر البيئي والاجتماعي","قالب دراسة المتطلبات الترخيصية",
+      "نموذج LaTeX لتقارير الجدوى الأكاديمية","مخطط تحليل الطلب والعرض","نموذج دراسة الموقع الجغرافي","قالب دراسة جدوى المشاريع الحكومية",
+      "نموذج تقييم سلاسل الإمداد","مخطط تحليل الاستثمار العقاري","نموذج دراسة جدوى المشاريع الصحية","قالب دراسة جدوى المشاريع التعليمية",
+      "نموذج تحليل السيناريوهات المستقبلية","مخطط دراسة جدوى الطاقة المتجددة","نموذج تقييم المشاريع الزراعية","قالب دراسة جدوى المشاريع السياحية",
+      "نموذج IRR وNPV المتقدم","مخطط تحليل دورة حياة المنتج","نموذج دراسة جدوى الاندماج والاستحواذ","قالب دراسة جدوى الفرنشايز",
+    ],
+  },
+  growth: {
+    label: "النمو والتوسع",
+    icon: "trending-up",
+    color: "yellow",
+    cls: "cat-growth",
+    items: [
+      "استراتيجية دخول أسواق جديدة","نموذج توسع الفرنشايز الإقليمي","خطة النمو القائم على البيانات","مخطط استراتيجية التمويل والاستثمار",
+      "نموذج بناء الشراكات الاستراتيجية","خطة توسع القنوات التوزيعية","مخطط نموذج الاشتراكات SaaS","نموذج استراتيجية الاستحواذ على العملاء",
+      "خطة تطوير المنتج - Product Roadmap","نموذج Growth Hacking المتقدم","مخطط استراتيجية PLG","نموذج بناء المجتمع والولاء",
+      "خطة التوسع الدولي وتعدد العملات","نموذج تحسين LTV/CAC","مخطط استراتيجية الإيرادات المتعددة","نموذج OKR للنمو المؤسسي",
+      "خطة تطوير الشركاء والمحالين","نموذج برامج الولاء والمكافآت","مخطط استراتيجية المبيعات B2B","نموذج تسريع دورة المبيعات",
+      "خطة توسع قطاع الخدمات","نموذج تطوير قطاع B2C","مخطط استراتيجية التسعير الديناميكي","نموذج تطوير خطة ABM",
+      "خطة استهداف شريحة Enterprise","نموذج Scale-up التشغيلي","مخطط نمو القنوات الرقمية","نموذج خطة التوسع الجغرافي المرحلي",
+    ],
+  },
+  ops: {
+    label: "العمليات",
+    icon: "settings",
+    color: "red",
+    cls: "cat-ops",
+    items: [
+      "إطار إدارة عمليات الجودة ISO","نموذج تحسين العمليات Lean Six Sigma","مخطط إدارة سلاسل الإمداد SCM","خطة تطوير الكفاءة التشغيلية",
+      "نموذج إدارة المخزون JIT","مخطط تحليل وإعادة هندسة العمليات BPR","خطة إدارة الموارد البشرية الاستراتيجية","نموذج KPI التشغيلي الشامل",
+      "مخطط إدارة مخاطر العمليات","نموذج تخطيط الطاقة الإنتاجية","خطة صيانة الأصول وإدارة الموارد","نموذج إدارة عقود الموردين",
+      "مخطط تحسين خدمة العملاء","نموذج إدارة الجودة الشاملة TQM","خطة خفض التكاليف التشغيلية","نموذج إدارة مشاريع PMO",
+      "مخطط أتمتة سير العمل","نموذج قياس الإنتاجية والأداء","خطة إدارة الأزمات والطوارئ","نموذج تطوير بروتوكولات العمل",
+      "مخطط تحليل بيانات العمليات","نموذج Balanced Scorecard","خطة إدارة التغيير Change Management","نموذج تطوير ثقافة الأداء",
+    ],
+  },
+};
+
+// ════════════════════════════════════════════════
+//  FAQ DATA
+// ════════════════════════════════════════════════
+const FAQS = [
+  { q: "هل يمكنني الترقية أو الرجوع في أي وقت؟", a: "نعم، يمكنك تغيير خطتك في أي وقت. يُطبق التغيير فوراً وتُحتسب الفارق." },
+  { q: "هل هناك تجربة مجانية؟", a: "تقدم خطة Starter تجربة مجانية لمدة 14 يوماً كاملة دون الحاجة لبيانات بطاقة." },
+  { q: "ما طرق الدفع المتاحة؟", a: "نقبل فيزا، ماستركارد، أمريكان إكسبريس، Apple Pay، وتحويل بنكي للخطة Enterprise." },
+  { q: "هل البيانات آمنة؟", a: "نعم، نستخدم تشفير SSL 256-bit ونلتزم بمعايير GDPR وحماية البيانات السعودية." },
+  { q: "هل يمكن الدفع بالريال السعودي؟", a: "نعم، ندعم الدفع بالريال السعودي والدولار الأمريكي والدرهم الإماراتي." },
+];
+
+// ════════════════════════════════════════════════
+//  ACTIVITIES DATA
+// ════════════════════════════════════════════════
+const ACTIVITIES = [
+  { icon: "plus-circle",  color: "text-brand-400", msg: "تم إنشاء مشروع جديد: تطوير تطبيق الموبايل", time: "منذ 5 دقائق" },
+  { icon: "trending-up",  color: "text-green-400",  msg: "تقدم مشروع دراسة الجدوى: 45%", time: "منذ ساعة" },
+  { icon: "user-plus",    color: "text-purple-400", msg: "انضم عضو جديد إلى فريق مشروع ERP", time: "منذ 3 ساعات" },
+  { icon: "check-circle", color: "text-green-400",  msg: "اكتمل مشروع نظام ERP المؤسسي", time: "أمس" },
+  { icon: "alert-circle", color: "text-yellow-400", msg: "تنبيه: مشروع التوسع الإقليمي يقترب من الموعد النهائي", time: "أمس" },
+];
+
+// ════════════════════════════════════════════════
+//  NAV / TAB SWITCHING
+// ════════════════════════════════════════════════
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    // Update nav
+    document.querySelectorAll('.nav-item').forEach(b => {
+      b.classList.remove('active','text-white');
+      b.classList.add('text-slate-300','hover:bg-white/10');
+    });
+    btn.classList.add('active');
+    btn.classList.remove('text-slate-300','hover:bg-white/10');
+    // Update content
+    document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    // Close sidebar on mobile
+    closeSidebar();
+  });
+});
+
+// Mobile hamburger
+document.getElementById('hamburger').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+});
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+// ════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════
+function initCharts() {
+  const gridColor = 'rgba(255,255,255,0.06)';
+  const tickColor = '#94a3b8';
+
+  // Performance Line Chart
+  const ctxPerf = document.getElementById('chart-performance');
+  if (ctxPerf) {
+    new Chart(ctxPerf, {
+      type: 'line',
+      data: {
+        labels: ['سبتمبر','أكتوبر','نوفمبر','ديسمبر','يناير','فبراير'],
+        datasets: [
+          {
+            label: 'مكتمل',
+            data: [3,5,4,7,6,9],
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,0.15)',
+            tension: 0.4, fill: true, pointRadius: 4,
+          },
+          {
+            label: 'جارٍ',
+            data: [8,9,11,10,12,11],
+            borderColor: '#a855f7',
+            backgroundColor: 'rgba(168,85,247,0.1)',
+            tension: 0.4, fill: true, pointRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Tajawal' } } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Tajawal' } } },
+        },
+      },
+    });
+  }
+
+  // Donut Chart
+  const ctxCat = document.getElementById('chart-categories');
+  if (ctxCat) {
+    new Chart(ctxCat, {
+      type: 'doughnut',
+      data: {
+        labels: ['تحول رقمي','دراسات جدوى','نمو وتوسع','عمليات'],
+        datasets: [{
+          data: [38,27,20,15],
+          backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444'],
+          borderWidth: 0, hoverOffset: 8,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        cutout: '70%',
+        plugins: { legend: { display: false }, tooltip: { rtl: true } },
+      },
+    });
+  }
+
+  // Budget Bar Chart
+  const ctxBudget = document.getElementById('chart-budget');
+  if (ctxBudget) {
+    new Chart(ctxBudget, {
+      type: 'bar',
+      data: {
+        labels: ['Q1','Q2','Q3','Q4'],
+        datasets: [
+          { label: 'مخطط', data: [150,200,180,250], backgroundColor: 'rgba(99,102,241,0.5)', borderRadius: 6 },
+          { label: 'فعلي',  data: [130,210,160,220], backgroundColor: 'rgba(168,85,247,0.5)', borderRadius: 6 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { labels: { color: tickColor, font: { family: 'Tajawal' }, boxWidth: 12 } } },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Tajawal' } } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Tajawal' } } },
+        },
+      },
+    });
+  }
+}
+
+// ════════════════════════════════════════════════
+//  RENDER: DASHBOARD PROGRESS LIST
+// ════════════════════════════════════════════════
+function renderDashboardProgress() {
+  const el = document.getElementById('dashboard-progress-list');
+  if (!el) return;
+  const top = projects.filter(p => p.status === 'active').slice(0, 4);
+  el.innerHTML = top.map(p => `
+    <div>
+      <div class="flex items-center justify-between mb-1.5 text-sm">
+        <span class="font-medium text-white">${p.name}</span>
+        <span class="text-slate-400">${p.progress}%</span>
+      </div>
+      <div class="h-2 bg-white/10 rounded-full overflow-hidden">
+        <div class="progress-fill h-full rounded-full bg-gradient-to-r from-brand-500 to-purple-500" style="width:${p.progress}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════
+//  RENDER: ACTIVITIES
+// ════════════════════════════════════════════════
+function renderActivities() {
+  const el = document.getElementById('activity-feed');
+  if (!el) return;
+  el.innerHTML = ACTIVITIES.map(a => `
+    <div class="flex items-start gap-3">
+      <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+        <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
+      </div>
+      <div>
+        <p class="text-sm text-slate-300">${a.msg}</p>
+        <p class="text-xs text-slate-500 mt-0.5">${a.time}</p>
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+// ════════════════════════════════════════════════
+//  RENDER: PROJECTS GRID
+// ════════════════════════════════════════════════
+const catLabel = { digital:'تحول رقمي', feasib:'دراسة جدوى', growth:'نمو وتوسع', ops:'عمليات' };
+const catColor  = { digital:'bg-brand-500/20 text-brand-300', feasib:'bg-green-500/20 text-green-300', growth:'bg-yellow-500/20 text-yellow-300', ops:'bg-red-500/20 text-red-300' };
+const prioLabel = { high:'عالية', medium:'متوسطة', low:'منخفضة' };
+const prioColor = { high:'bg-red-500/20 text-red-300', medium:'bg-yellow-500/20 text-yellow-300', low:'bg-green-500/20 text-green-300' };
+const statLabel = { active:'نشط', completed:'مكتمل', paused:'متوقف' };
+const statColor = { active:'bg-green-500/20 text-green-300', completed:'bg-brand-500/20 text-brand-300', paused:'bg-slate-500/20 text-slate-400' };
+
+let currentFilter = 'all';
+
+function renderProjects(filter) {
+  currentFilter = filter || currentFilter;
+  const grid  = document.getElementById('projects-grid');
+  const empty = document.getElementById('projects-empty');
+  const list  = currentFilter === 'all' ? projects : projects.filter(p => p.status === currentFilter);
+
+  if (list.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = list.map(p => `
+    <div class="glass hover-lift p-5 rounded-xl flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="font-bold text-white text-base leading-snug">${p.name}</h3>
+        <span class="badge ${catColor[p.cat]} shrink-0">${catLabel[p.cat]}</span>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed -mt-2">${p.desc || ''}</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="badge ${prioColor[p.priority]}">أولوية: ${prioLabel[p.priority]}</span>
+        <span class="badge ${statColor[p.status]}">${statLabel[p.status]}</span>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>الإنجاز</span><span>${p.progress}%</span>
+        </div>
+        <div class="h-2 bg-white/10 rounded-full overflow-hidden">
+          <div class="progress-fill h-full rounded-full ${p.progress===100?'bg-green-500':'bg-gradient-to-r from-brand-500 to-purple-500'}" style="width:${p.progress}%"></div>
+        </div>
+      </div>
+      ${p.budget ? `<div class="text-xs text-slate-400">الميزانية: <span class="text-white font-medium">${Number(p.budget).toLocaleString()}</span></div>` : ''}
+      <div class="flex gap-2 mt-auto pt-2">
+        <button onclick="editProjectProgress(${p.id})" class="flex-1 py-2 rounded-lg bg-white/5 hover:bg-brand-500/20 text-xs font-medium text-slate-300 hover:text-brand-300 transition-all">
+          تحديث التقدم
+        </button>
+        <button onclick="deleteProject(${p.id})" class="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+  updateKPIs();
+}
+
+function updateKPIs() {
+  document.getElementById('kpi-projects').textContent   = projects.length;
+  document.getElementById('kpi-completed').textContent  = projects.filter(p=>p.status==='completed').length;
+  document.getElementById('kpi-active').textContent     = projects.filter(p=>p.status==='active').length;
+  document.getElementById('profile-projects-count').textContent = projects.length;
+}
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.remove('active','bg-brand-500/20','text-brand-300');
+      b.classList.add('text-slate-400','hover:bg-white/10');
+    });
+    btn.classList.add('active','bg-brand-500/20','text-brand-300');
+    btn.classList.remove('text-slate-400','hover:bg-white/10');
+    renderProjects(btn.dataset.filter);
+  });
+});
+
+// ════════════════════════════════════════════════
+//  MODAL: CREATE PROJECT
+// ════════════════════════════════════════════════
+function openProjectModal() {
+  document.getElementById('project-form').reset();
+  document.getElementById('prog-label').textContent = '0%';
+  document.getElementById('modal-project').classList.remove('hidden');
+}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
+
+function saveProject(e) {
+  e.preventDefault();
+  const proj = {
+    id: Date.now(),
+    name:     document.getElementById('proj-name').value.trim(),
+    desc:     document.getElementById('proj-desc').value.trim(),
+    cat:      document.getElementById('proj-cat').value,
+    priority: document.getElementById('proj-priority').value,
+    progress: parseInt(document.getElementById('proj-progress').value),
+    status:   parseInt(document.getElementById('proj-progress').value)===100 ? 'completed' : 'active',
+    start:    document.getElementById('proj-start').value,
+    end:      document.getElementById('proj-end').value,
+    budget:   document.getElementById('proj-budget').value,
+    createdAt: Date.now(),
+  };
+  projects.unshift(proj);
+  persistProjects();
+  closeModal('modal-project');
+  renderProjects();
+  renderDashboardProgress();
+  showToast('تم إنشاء المشروع بنجاح!');
+  syncToFirestore(proj);
+}
+
+function deleteProject(id) {
+  if (!confirm('هل أنت متأكد من حذف هذا المشروع؟')) return;
+  projects = projects.filter(p => p.id !== id);
+  persistProjects();
+  renderProjects();
+  renderDashboardProgress();
+  showToast('تم حذف المشروع');
+}
+
+function editProjectProgress(id) {
+  const proj = projects.find(p => p.id === id);
+  if (!proj) return;
+  const val = prompt(`أدخل نسبة الإنجاز الجديدة (0-100) للمشروع:\n"${proj.name}"`, proj.progress);
+  if (val === null) return;
+  const num = Math.min(100, Math.max(0, parseInt(val) || 0));
+  proj.progress = num;
+  proj.status = num === 100 ? 'completed' : (proj.status === 'completed' ? 'active' : proj.status);
+  persistProjects();
+  renderProjects();
+  renderDashboardProgress();
+  showToast('تم تحديث نسبة الإنجاز!');
+}
+
+// ════════════════════════════════════════════════
+//  TEMPLATES RENDER
+// ════════════════════════════════════════════════
+function renderTemplates(searchQ, cat) {
+  const container = document.getElementById('templates-container');
+  let html = '';
+  for (const [key, data] of Object.entries(TEMPLATES)) {
+    if (cat && cat !== 'all' && cat !== key) continue;
+    const items = searchQ
+      ? data.items.filter(t => t.includes(searchQ))
+      : data.items;
+    if (items.length === 0) continue;
+
+    const colorMap = { brand:'text-brand-400 bg-brand-500/10', green:'text-green-400 bg-green-500/10', yellow:'text-yellow-400 bg-yellow-500/10', red:'text-red-400 bg-red-500/10' };
+
+    html += `
+      <div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl ${colorMap[data.color]} flex items-center justify-center">
+            <i data-lucide="${data.icon}" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-white">${data.label}</h2>
+            <p class="text-xs text-slate-400">${items.length} قالب</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          ${items.map((t,i) => `
+            <div class="glass ${data.cls} hover-lift p-4 rounded-xl cursor-pointer group" onclick="useTemplate('${t.replace(/'/g,"\\'")}')">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <p class="text-sm font-medium text-white leading-snug">${t}</p>
+                <i data-lucide="arrow-up-left" class="w-3.5 h-3.5 text-slate-500 group-hover:text-brand-400 shrink-0 transition-colors mt-0.5"></i>
+              </div>
+              <div class="flex items-center gap-2 mt-3">
+                <span class="badge bg-white/5 text-slate-400 text-[10px]">${data.label}</span>
+                <span class="badge bg-green-500/10 text-green-400 text-[10px]">جاهز</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  if (!html) {
+    html = `<div class="text-center py-16 text-slate-400">لا توجد قوالب مطابقة للبحث</div>`;
+  }
+  container.innerHTML = html;
+  lucide.createIcons();
+}
+
+function useTemplate(name) {
+  // Pre-fill project form with template name
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.remove('active','text-white');
+    b.classList.add('text-slate-300','hover:bg-white/10');
+  });
+  document.querySelector('[data-tab="projects"]').classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-projects').classList.add('active');
+  openProjectModal();
+  document.getElementById('proj-name').value = name;
+  showToast(`تم تحميل قالب: ${name}`);
+}
+
+document.getElementById('template-search').addEventListener('input', e => {
+  renderTemplates(e.target.value, document.getElementById('template-cat').value);
+});
+document.getElementById('template-cat').addEventListener('change', e => {
+  renderTemplates(document.getElementById('template-search').value, e.target.value);
+});
+
+// ════════════════════════════════════════════════
+//  FAQ
+// ════════════════════════════════════════════════
+function renderFAQs() {
+  const el = document.getElementById('faq-container');
+  if (!el) return;
+  el.innerHTML = FAQS.map((f,i) => `
+    <div class="glass rounded-xl overflow-hidden">
+      <button onclick="toggleFAQ(${i})" class="w-full flex items-center justify-between p-4 text-right hover:bg-white/5 transition-all">
+        <span class="font-medium text-white text-sm">${f.q}</span>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" id="faq-icon-${i}"></i>
+      </button>
+      <div class="hidden px-4 pb-4 text-sm text-slate-400 leading-relaxed" id="faq-ans-${i}">${f.a}</div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+function toggleFAQ(i) {
+  const ans = document.getElementById('faq-ans-' + i);
+  const ico = document.getElementById('faq-icon-' + i);
+  ans.classList.toggle('hidden');
+  ico.style.transform = ans.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+// ════════════════════════════════════════════════
+//  PRICING / BILLING TOGGLE
+// ════════════════════════════════════════════════
+function toggleBilling() {
+  billingYearly = !billingYearly;
+  const dot = document.getElementById('billing-dot');
+  if (billingYearly) {
+    dot.style.right = '';
+    dot.style.left  = '2px';
+  } else {
+    dot.style.left  = '';
+    dot.style.right = '2px';
+  }
+
+  document.querySelectorAll('[data-monthly]').forEach(el => {
+    const val = billingYearly ? el.dataset.yearly : el.dataset.monthly;
+    el.textContent = '$' + val;
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHECKOUT
+// ════════════════════════════════════════════════
+let checkoutData = {};
+function openCheckout(plan, price) {
+  const planLabel = { starter:'Starter', growth:'Growth Pro', enterprise:'Enterprise' };
+  const finalPrice = billingYearly ? Math.round(price * 0.8) : price;
+  checkoutData = { plan, price: finalPrice, label: planLabel[plan] };
+  document.getElementById('checkout-summary').innerHTML = `
+    <div class="flex justify-between items-center">
+      <div>
+        <div class="font-bold text-white">${planLabel[plan]}</div>
+        <div class="text-xs text-slate-400">${billingYearly ? 'فاتورة سنوية' : 'فاتورة شهرية'}</div>
+      </div>
+      <div class="text-2xl font-black gradient-text">$${finalPrice}<span class="text-sm text-slate-400">/شهر</span></div>
+    </div>
+  `;
+  document.getElementById('checkout-form').reset();
+  document.getElementById('modal-checkout').classList.remove('hidden');
+}
+
+function processCheckout(e) {
+  e.preventDefault();
+  closeModal('modal-checkout');
+  showToast(`🎉 تم الاشتراك بنجاح في خطة ${checkoutData.label}!`);
+}
+
+function formatCard(input) {
+  let val = input.value.replace(/\D/g,'').substring(0,16);
+  input.value = val.replace(/(.{4})/g,'$1 ').trim();
+}
+
+// ════════════════════════════════════════════════
+//  PROFILE
+// ════════════════════════════════════════════════
+function loadProfile() {
+  if (profile.name)    { document.getElementById('profile-name').value    = profile.name;    document.getElementById('profile-name-display').textContent  = profile.name; }
+  if (profile.email)   { document.getElementById('profile-email').value   = profile.email;   document.getElementById('profile-email-display').textContent = profile.email; }
+  if (profile.title)     document.getElementById('profile-title').value   = profile.title;
+  if (profile.company)   document.getElementById('profile-company').value = profile.company;
+  if (profile.bio)       document.getElementById('profile-bio').value     = profile.bio;
+}
+
+function saveProfile(e) {
+  e.preventDefault();
+  profile = {
+    name:    document.getElementById('profile-name').value,
+    email:   document.getElementById('profile-email').value,
+    title:   document.getElementById('profile-title').value,
+    company: document.getElementById('profile-company').value,
+    bio:     document.getElementById('profile-bio').value,
+  };
+  localStorage.setItem('pc_profile', JSON.stringify(profile));
+  document.getElementById('profile-name-display').textContent  = profile.name;
+  document.getElementById('profile-email-display').textContent = profile.email;
+  showToast('تم حفظ الملف الشخصي بنجاح!');
+  syncProfileToFirestore(profile);
+}
+
+// ════════════════════════════════════════════════
+//  PERSISTENCE: localStorage + Firestore
+// ════════════════════════════════════════════════
+function persistProjects() {
+  localStorage.setItem('pc_projects', JSON.stringify(projects));
+}
+
+async function syncToFirestore(proj) {
+  if (!window.__db) return;
+  try {
+    const { collection, addDoc } = window.__fb;
+    await addDoc(collection(window.__db, 'projects'), proj);
+  } catch(e) { console.warn('Firestore sync failed:', e.message); }
+}
+
+async function syncProfileToFirestore(data) {
+  if (!window.__db) return;
+  try {
+    const { collection, addDoc } = window.__fb;
+    await addDoc(collection(window.__db, 'profiles'), { ...data, ts: Date.now() });
+  } catch(e) { console.warn('Firestore sync failed:', e.message); }
+}
+
+// ════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════
+let toastTimeout;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.remove('opacity-0','scale-95','pointer-events-none');
+  t.classList.add('opacity-100','scale-100');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    t.classList.add('opacity-0','scale-95','pointer-events-none');
+    t.classList.remove('opacity-100','scale-100');
+  }, 3500);
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  initCharts();
+  renderDashboardProgress();
+  renderActivities();
+  renderProjects('all');
+  renderTemplates('', 'all');
+  renderFAQs();
+  loadProfile();
+  updateKPIs();
+
+  // set today as default start date, and 30 days from today as default end date
+  const today = new Date();
+  document.getElementById('proj-start').value = today.toISOString().split('T')[0];
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 30);
+  document.getElementById('proj-end').value = endDate.toISOString().split('T')[0];
+});
+</script>
+</body>
+</html>
