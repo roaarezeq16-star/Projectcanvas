@@ -72,6 +72,77 @@
         },
       },
     };
+    const templateStructures = {
+    // قسم التحول الرقمي (Digital Transformation)
+    "استراتيجية التحول الرقمي الشامل": ["تحليل النضج الرقمي الحالي", "خارطة طريق التقنيات المقترحة", "خطة إدارة التغيير الثقافي", "مؤشرات نجاح التحول"],
+    "نموذج نضج الذكاء الاصطناعي": ["تقييم جودة البيانات", "حالات استخدام AI المقترحة", "البنية التحتية للحوسبة", "الأخلاقيات والامتثال"],
+    "مخطط نقل البنية التحتية للسحابة": ["تحليل التكلفة (TCO)", "تقييم المخاطر الأمنية", "جدول الترحيل الزمني", "خطة استمرارية الأعمال"],
+    "إطار حوكمة البيانات المؤسسي": ["سياسة خصوصية البيانات", "أدوار الإشراف (Data Stewards)", "معايير جودة البيانات", "إدارة البيانات الضخمة"],
+
+    // قسم النمو والتوسع (Growth & Expansion)
+    "مخطط نموذج الاشتراكات SaaS": ["هيكل باقات التسعير", "تكلفة الاستحواذ (CAC)", "تحليل معدل الانصراف (Churn)", "القيمة الدائمة للعميل (LTV)"],
+    "نموذج استراتيجية الاستحواذ المهاجم": ["تحديد الشركات المستهدفة", "تحليل التآزر (Synergy)", "خطة الدمج التشغيلي", "التقييم المالي"],
+    "خطة التوسع الجغرافي الدولي": ["تحليل السوق المستهدف", "العوائق القانونية والضريبية", "سلسلة التوريد المحلية", "توطين العلامة التجارية"],
+
+    // قسم الاستراتيجية (Strategy)
+    "استراتيجية المحيط الأزرق": ["منحنى القيمة الحالي", "تحليل العناصر الأربعة (ERRC)", "خلق مساحة سوقية جديدة", "اختبار الجدوى التجارية"],
+    "تحليل القوى الخمس لبورتر": ["حدة المنافسة", "قوة المشترين/الموردين", "تهديد البدلاء", "عوائق الدخول"],
+    
+    // قسم المنظمات والعمل الإنساني (NGOs)
+    "نموذج قياس الأثر الاجتماعي": ["المدخلات والمخرجات", "تغيير السلوك المستهدف", "قياس العائد الاجتماعي (SROI)", "استدامة المشروع"],
+    "خطة الاستدامة المالية للمنظمات": ["مصادر التمويل الذاتي", "إدارة علاقات المانحين", "الاستثمار في الوقف", "تقليل الاعتماد على المنح"]
+};
+function openSmartDoc(title) {
+    // الحصول على الأقسام بناءً على الاسم، أو وضع أقسام افتراضية
+    const sections = templateStructures[title] || ["المقدمة والأهداف", "التحليل الاستراتيجي", "خطة التنفيذ", "الميزانية المتوقعة"];
+    
+    const sectionsHTML = sections.map((s, index) => `
+        <div class="mb-6 p-5 bg-white/5 rounded-2xl border border-white/10 hover:border-brand-500/30 transition-colors">
+            <h4 class="text-brand-400 text-[11px] font-bold mb-3 tracking-widest uppercase">SECTION ${index + 1}: ${s}</h4>
+            <textarea class="w-full bg-black/30 border-none rounded-xl p-4 text-slate-300 text-sm focus:ring-1 focus:ring-brand-500/50 min-h-[100px]" 
+                      placeholder="ابدأ بتدوين التحليلات الخاصة بـ ${s}..."></textarea>
+        </div>
+    `).join('');
+
+    const docOverlay = document.createElement('div');
+    docOverlay.className = 'fixed inset-0 z-[5000] flex items-center justify-end bg-black/60 backdrop-blur-sm'; // يفتح من الجانب كأنه لوحة جانبية
+    docOverlay.innerHTML = `
+        <div class="bg-[#0f172a] w-full max-w-3xl h-full shadow-2xl border-l border-white/10 overflow-hidden flex flex-col animate-slide-left">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <div>
+                    <h2 class="text-xl font-bold text-white">${title}</h2>
+                    <p class="text-[10px] text-slate-500">محرر الوثائق الاستراتيجية الذكي</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" class="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div class="max-w-2xl mx-auto">
+                    ${sectionsHTML}
+                </div>
+            </div>
+
+            <div class="p-6 border-t border-white/10 bg-white/5 flex gap-4">
+                <button onclick="saveAsDraft('${title}')" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20">حفظ كمسودة في المشروع</button>
+                <button onclick="window.print()" class="px-6 py-3 border border-white/10 text-slate-300 hover:bg-white/5 rounded-xl transition-all font-bold">تصدير PDF</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(docOverlay);
+}
+
+// دالة مساعدة لحفظ البيانات
+function saveAsDraft(title) {
+    alert(`تم ربط مسودة "${title}" بنجاح في لوحة التحكم الخاصة بك.`);
+}
+// عند الضغط على أي كارد في المكتبة
+function handleCardClick(templateTitle) {
+    // 1. افتحي نافذة "إنشاء مشروع" (اللي بتظهر في صورتك)
+    showCreateProjectModal(templateTitle); 
+    
+    // 2. وبشكل تلقائي، يمكننا جعل زر "المعاينة" يفتح الـ SmartDoc
+    // أو حتى فتح الـ SmartDoc مباشرة بجانبها.
+}
   </script>
 
   <style>
