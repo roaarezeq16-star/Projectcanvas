@@ -1,8 +1,0 @@
-// عند الضغط على أي كارد في المكتبة
-function handleCardClick(templateTitle) {
-    // 1. افتحي نافذة "إنشاء مشروع" (اللي بتظهر في صورتك)
-    showCreateProjectModal(templateTitle); 
-    
-    // 2. وبشكل تلقائي، يمكننا جعل زر "المعاينة" يفتح الـ SmartDoc
-    // أو حتى فتح الـ SmartDoc مباشرة بجانبها.
-}
